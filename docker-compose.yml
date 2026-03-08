@@ -1,0 +1,66 @@
+networks:
+  invest_network:
+
+volumes:
+  mongodb_data:
+    driver: local
+
+services:
+  bot:
+    build: .
+    env_file:
+      - .env
+    container_name: invest_bot
+    depends_on:
+      - mongodb
+      - selenium  # если бот зависит от selenium
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - .:/app
+    networks:
+      - invest_network
+  
+  mongodb:
+    image: mongo:8.0.11
+    container_name: invest_prod_db
+    restart: unless-stopped
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - invest_network
+
+  selenium:
+    # image: selenium/standalone-chrome:136.0-20251101
+    image: selenium/standalone-chrome:138.0-20250909
+    # image: selenium/standalone-firefox:142.0-20250909
+    container_name: invest_selenium
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.5'
+          memory: 4G
+    environment:
+      - SE_RECORD_VIDEO=false            # Отключить запись видео (очень ресурсоемко!)
+      - SE_ENABLE_TRACING=false          # Отключить трассировку
+      - SE_START_VNC=false               # У вас уже есть
+      - SE_START_NO_VNC=false            # У вас уже есть
+      - SE_START_XVFB=true
+      - SE_SESSION_TIMEOUT=180
+      - SE_NODE_HEARTBEAT_PERIOD=60
+      - SE_NODE_REGISTER_PERIOD=180
+      - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=true 
+      - SE_BROWSER_LEFTOVERS_PROCESSES_SECS=180
+      - SE_BROWSER_LEFTOVERS_INTERVAL_SECS=180
+    ports:
+      - "4444:4444"  # Selenium Grid UI и WebDriver endpoint
+      - "7900:7900"  # VNC (опционально, для просмотра сессии в браузере)
+    shm_size: 2gb  # важно для Chrome — иначе могут быть ошибки памяти
+    networks:
+      - invest_network
